@@ -19,6 +19,7 @@ This firmware is built from [IoTThinks' PowerSaving-v17 MeshCore fork](https://g
 | RAK4631 | WisBlock Core RAK4631 / SX1262 | Optional SSD1306 |
 | RAK3401 1W | RAK3401 + RAK13302/SKY66122 | Optional SSD1306 |
 | Xiao ESP32-S3 | Seeed Xiao ESP32-S3 + supported SX1262 wiring | Headless |
+| Xiao nRF52840 | Seeed Xiao nRF52840 + supported SX1262 wiring | Headless / null display |
 | RCC6 Headless | Heltec RadioCore RCC6-L62 | TFT held off |
 | RCC6 TFT | RCC6-L62 + NV3001B 220×128 | Indexed framebuffer; auto-off |
 | RC52 Headless | Heltec RadioCore RC52-L62 | TFT held off |
@@ -91,7 +92,7 @@ See [docs/INSTALL.md](docs/INSTALL.md) for board-specific notes and [docs/POWER_
 - NeonPocket ULP base: IoTThinks/MeshCore `PowerSaving-v17` commit `a3b9ad91a5bf04e7e00713595469dc868de53628`.
 - MeshCore upstream base: 1.17.1 commit `d92964352441e53b93e8667b802e04f6e072b39e`.
 - EasySkyMesh reference release: [`PowerSaving17.1`](https://github.com/IoTThinks/EasySkyMesh/releases/tag/PowerSaving17.1).
-- All nine release environments are built by GitHub Actions and shipped with SHA-256 manifests.
+- All ten release environments are built by GitHub Actions and shipped with SHA-256 manifests.
 
 This community project is not an official Heltec, RAKwireless, Seeed Studio, MeshCore, or EasySkyMesh release.
 

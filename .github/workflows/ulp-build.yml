@@ -1,5 +1,5 @@
 name: Build ULP Solar Repeaters
-# Exact nine-profile NeonPocketMC release build.
+# Exact ten-profile NeonPocketMC release build.
 
 on:
   push:
@@ -48,6 +48,9 @@ jobs:
           - env: neonpocket_ulp_xiao_esp32s3
             slug: Xiao-ESP32S3
             family: esp
+          - env: neonpocket_ulp_xiao_nrf52840
+            slug: Xiao-nRF52840
+            family: nrf
           - env: neonpocket_ulp_rcc6_headless
             slug: RCC6-Headless
             family: esp

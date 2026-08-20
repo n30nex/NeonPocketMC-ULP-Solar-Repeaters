@@ -11,6 +11,7 @@ MATRIX = {
     "neonpocket_ulp_rak4631",
     "neonpocket_ulp_rak3401_1w",
     "neonpocket_ulp_xiao_esp32s3",
+    "neonpocket_ulp_xiao_nrf52840",
     "neonpocket_ulp_rcc6_headless",
     "neonpocket_ulp_rcc6_tft",
     "neonpocket_ulp_rc52_headless",
@@ -54,7 +55,7 @@ def main() -> int:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for text in ("IoTThinks", "PowerSaving-v17", "power saving is ON by default", "external MPPT"):
         require(text.lower() in readme.lower(), f"README missing: {text}")
-    print("Verified 9-profile NeonPocketMC ULP release contract")
+    print("Verified 10-profile NeonPocketMC ULP release contract")
     return 0
 
 
