@@ -79,7 +79,7 @@ Advanced EasySkyMesh-compatible controls remain available through `get radio.rxp
 - The full image includes the bootloader, partition table, and app. It does not deliberately erase the separate MeshCore filesystem, but normal app-only flashing is the identity-preserving path.
 - Never flash an image for another board.
 
-### nRF52 boards: RAK4631, RAK3401 1W, RC52
+### nRF52 boards: RAK4631, RAK3401 1W, Xiao nRF52840, RC52
 
 - Enter the board's UF2 bootloader and copy the exact `.uf2` for that board.
 - This is an application image; do not erase or replace the SoftDevice/bootloader.

@@ -17,7 +17,8 @@ Every public filename contains the hardware name. RCC6 and RC52 additionally con
 - `.uf2`: normal nRF52 application update through the UF2 bootloader.
 - `.hex`: advanced nRF52 recovery/programmer input.
 
-Do not interchange V3/V4, RAK4631/RAK3401, RCC6/RC52, or screen/headless images.
+Do not interchange V3/V4, RAK4631/RAK3401, Xiao ESP32-S3/Xiao nRF52840,
+RCC6/RC52, or screen/headless images.
 
 ## First setup
 
