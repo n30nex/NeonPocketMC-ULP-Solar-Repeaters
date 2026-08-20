@@ -185,6 +185,40 @@ uint8_t CommonCLI::buildAdvertData(uint8_t node_type, uint8_t* app_data) {
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
+#if defined(NEONPOCKET_ULP_SOLAR)
+    if (strcmp(command, "ulp") == 0 || strcmp(command, "ulp status") == 0) {
+      RxPowerSavingStatus status = _rxps_control != nullptr
+          ? _rxps_control->getRxPowerSavingStatus()
+          : RxPowerSavingStatus{};
+      snprintf(reply, 160, "> ULP %s, radio=%s, level=%u, preamble=%u",
+               _prefs->powersaving_enabled ? "on" : "off",
+               status.armed ? "duty-cycle" : "continuous",
+               (unsigned)_prefs->rxps.level,
+               (unsigned)_prefs->rxps.preamble);
+    } else if (strcmp(command, "ulp on") == 0 || strcmp(command, "ulp balanced") == 0 ||
+               strcmp(command, "ulp conservative") == 0 || strcmp(command, "ulp max") == 0 ||
+               strcmp(command, "ulp off") == 0) {
+      const char* profile = "balanced";
+      if (strcmp(command, "ulp conservative") == 0) profile = "conservative";
+      if (strcmp(command, "ulp max") == 0) profile = "level 10 preamble 32";
+      if (strcmp(command, "ulp off") == 0) profile = "off";
+
+      if (RXPowerSavingCLI::set(profile, _prefs->sf, _prefs->bw, &_prefs->rxps,
+                                _rxps_control, reply, 160)) {
+        const bool enabled = strcmp(profile, "off") != 0;
+        _prefs->powersaving_enabled = enabled ? 1 : 0;
+        _sensors->powersaving_enabled = enabled;
+        savePrefs();
+        if (enabled) {
+          snprintf(reply, 160, "OK - ULP %s; MCU sleep on; radio level=%u/preamble=%u",
+                   strcmp(command, "ulp on") == 0 ? "balanced" : &command[4],
+                   (unsigned)_prefs->rxps.level, (unsigned)_prefs->rxps.preamble);
+        } else {
+          strcpy(reply, "OK - ULP off; MCU awake; radio continuous");
+        }
+      }
+    } else
+#endif
     if (memcmp(command, "poweroff", 8) == 0 || memcmp(command, "shutdown", 8) == 0) {
       _board->powerOff();  // doesn't return
     } else if (memcmp(command, "reboot", 6) == 0) {

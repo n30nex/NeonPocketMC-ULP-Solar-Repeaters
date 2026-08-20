@@ -19,7 +19,7 @@ SimpleMeshTables tables;
 MyMesh the_mesh(board, radio_driver, *new ArduinoMillis(), fast_rng, rtc_clock, tables);
 
 void halt() {
-  while (1) ;
+  while (1) { delay(1000); }
 }
 
 static char command[160];
@@ -69,11 +69,37 @@ void setup() {
 
   FILESYSTEM* fs;
 #if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+#if defined(NEONPOCKET_ULP_SOLAR)
+  if (!InternalFS.begin()) {
+    Serial.println("STORAGE ERROR: filesystem mount failed; refusing to format");
+#ifdef DISPLAY_CLASS
+    display.startFrame();
+    display.setCursor(0, 0);
+    display.print("STORAGE ERROR");
+    display.endFrame();
+#endif
+    halt();
+  }
+#else
   InternalFS.begin();
+#endif
   fs = &InternalFS;
   IdentityStore store(InternalFS, "");
 #elif defined(ESP32)
+#if defined(NEONPOCKET_ULP_SOLAR)
+  if (!SPIFFS.begin(false)) {
+    Serial.println("STORAGE ERROR: filesystem mount failed; refusing to format");
+#ifdef DISPLAY_CLASS
+    display.startFrame();
+    display.setCursor(0, 0);
+    display.print("STORAGE ERROR");
+    display.endFrame();
+#endif
+    halt();
+  }
+#else
   SPIFFS.begin(true);
+#endif
   fs = &SPIFFS;
   IdentityStore store(SPIFFS, "/identity");
 #elif defined(RP2040_PLATFORM)

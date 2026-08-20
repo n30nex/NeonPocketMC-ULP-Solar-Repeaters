@@ -1,128 +1,100 @@
-## About MeshCore
+<p align="center">
+  <img src="https://raw.githubusercontent.com/n30nex/NeonPocketMC/main/branding/neonpocketmc-mark.png" width="180" alt="NeonPocketMC logo">
+</p>
 
-MeshCore is a lightweight, portable C++ library that enables multi-hop packet routing for embedded projects using LoRa and other packet radios. It is designed for developers who want to create resilient, decentralized communication networks that work without the internet.
+# NeonPocketMC ULP Solar Repeaters
 
-## 🔍 What is MeshCore?
+Experimental, low-power MeshCore repeaters for solar and battery deployments.
 
-MeshCore now supports a range of LoRa devices, allowing for easy flashing without the need to compile firmware manually. Users can flash a pre-built binary using tools like Adafruit ESPTool and interact with the network through a serial console.
-MeshCore provides the ability to create wireless mesh networks, similar to Meshtastic and Reticulum but with a focus on lightweight multi-hop packet routing for embedded projects. Unlike Meshtastic, which is tailored for casual LoRa communication, or Reticulum, which offers advanced networking, MeshCore balances simplicity with scalability, making it ideal for custom embedded solutions, where devices (nodes) can communicate over long distances by relaying messages through intermediate nodes. This is especially useful in off-grid, emergency, or tactical situations where traditional communication infrastructure is unavailable.
+This firmware is built from [IoTThinks' PowerSaving-v17 MeshCore fork](https://github.com/IoTThinks/MeshCore/tree/PowerSaving-v17), with the power-saving work fully attributed in [docs/EASYSKYMESH_ATTRIBUTION.md](docs/EASYSKYMESH_ATTRIBUTION.md). It tracks MeshCore 1.17.1 and adds NeonPocketMC hardware profiles, default-on setup, a simpler `ulp` command, TFT support for RCC6/RC52, packaging, and a guided USB configurator.
 
-## ⚡ Key Features
+> **Experimental.** RX duty cycling saves power by intentionally spending part of each interval asleep. A ULP repeater can miss packets that a continuously listening repeater would receive. Test coverage and current draw at the actual deployment site before relying on it.
 
-* Multi-Hop Packet Routing
-  * Devices can forward messages across multiple nodes, extending range beyond a single radio's reach.
-  * Supports up to a configurable number of hops to balance network efficiency and prevent excessive traffic.
-  * Nodes use fixed roles where "Companion" nodes are not repeating messages at all to prevent adverse routing paths from being used.
-* Supports LoRa Radios – Works with Heltec, RAK Wireless, and other LoRa-based hardware.
-* Decentralized & Resilient – No central server or internet required; the network is self-healing.
-* Low Power Consumption – Ideal for battery-powered or solar-powered devices.
-* Simple to Deploy – Pre-built example applications make it easy to get started.
+## Builds
 
-## 🎯 What Can You Use MeshCore For?
+| Release build | Hardware | Display |
+|---|---|---|
+| Heltec V3 | WiFi LoRa 32 V3 / SX1262 | Built-in OLED |
+| Heltec V4 | WiFi LoRa 32 V4 / SX1262 | Built-in OLED |
+| RAK4631 | WisBlock Core RAK4631 / SX1262 | Optional SSD1306 |
+| RAK3401 1W | RAK3401 + RAK13302/SKY66122 | Optional SSD1306 |
+| Xiao ESP32-S3 | Seeed Xiao ESP32-S3 + supported SX1262 wiring | Headless |
+| RCC6 Headless | Heltec RadioCore RCC6-L62 | TFT held off |
+| RCC6 TFT | RCC6-L62 + NV3001B 220×128 | Indexed framebuffer; auto-off |
+| RC52 Headless | Heltec RadioCore RC52-L62 | TFT held off |
+| RC52 TFT | RC52-L62 + NV3001B 220×128 | Indexed framebuffer; auto-off |
 
-* Off-Grid Communication: Stay connected even in remote areas.
-* Emergency Response & Disaster Recovery: Set up instant networks where infrastructure is down.
-* Outdoor Activities: Hiking, camping, and adventure racing communication.
-* Tactical & Security Applications: Military, law enforcement, and private security use cases.
-* IoT & Sensor Networks: Collect data from remote sensors and relay it back to a central location.
+**Hardware warning:** these boards do not all accept an unregulated solar panel. Use a protected battery and an external MPPT/solar charge controller matched to the panel and cell. Never connect a raw panel directly to VBAT or USB.
 
-## 🚀 How to Get Started
+## Default power behavior
 
-- Watch the [MeshCore QuickStart Playlist](https://www.youtube.com/watch?v=iaFltojJrAc&list=PLshzThxhw4O4WU_iZo3NmNZOv6KMrUuF9) by The Comms Channel
-- Watch the [MeshCore Technical Presentation](https://www.youtube.com/watch?v=OwmkVkZQTf4) by Liam Cottle.
-- Read through our [Frequently Asked Questions](./docs/faq.md) and [Documentation](https://docs.meshcore.io).
-- Flash the MeshCore firmware on a supported device.
-- Connect with a supported client.
+For a new installation, **power saving is ON by default**:
 
-For developers:
+- MCU light sleep is enabled after the existing two-minute startup window on ESP32 and whenever idle on nRF52.
+- SX1262 radio RX duty cycling starts in the balanced profile: level 5, preamble 16.
+- GPS duty scheduling is automatic when a supported GPS is explicitly enabled; this firmware does not turn GPS on by default.
+- TFT/OLED builds turn the display off after inactivity; LoRa continues operating.
+- If radio duty-cycle arming fails, the IoTThinks implementation falls back to continuous receive and limits retries rather than leaving the radio deaf.
 
-- Install [PlatformIO](https://docs.platformio.org) in [Visual Studio Code](https://code.visualstudio.com).
-- Clone and open the MeshCore repository in Visual Studio Code.
-- See the example applications you can modify and run:
-  - [Companion Radio](./examples/companion_radio) - For use with an external chat app, over BLE, USB or Wi-Fi.
-  - [KISS Modem](./examples/kiss_modem) - Serial KISS protocol bridge for host applications. ([protocol docs](./docs/kiss_modem_protocol.md))
-  - [Simple Repeater](./examples/simple_repeater) - Extends network coverage by relaying messages.
-  - [Simple Room Server](./examples/simple_room_server) - A simple BBS server for shared Posts.
-  - [Simple Secure Chat](./examples/simple_secure_chat) - Secure terminal based text communication between devices.
-  - [Simple Sensor](./examples/simple_sensor) - Remote sensor node with telemetry and alerting.
+Saved preferences always win after an upgrade. A previously configured device is not silently forced back to balanced mode.
 
-The Simple Secure Chat example can be interacted with through the Serial Monitor in Visual Studio Code, or with a Serial USB Terminal on Android.
+## Easy setup
 
-## ⚡️ MeshCore Flasher
+1. Flash the build matching the exact board.
+2. Keep USB and the antenna connected.
+3. Download the release's `NeonPocketMC-ULP-Configurator.zip`.
+4. Windows: double-click `configure-ulp-windows.bat`.
+5. Linux: run `sh configure-ulp-linux.sh`.
+6. Pick the serial device, region, name, transmit power, admin password, and ULP profile.
 
-We have prebuilt firmware ready to flash on supported devices.
+The wizard verifies that it is talking to NeonPocket ULP firmware before changing anything.
 
-- Launch https://meshcore.io/flasher
-- Select a supported device
-- Flash one of the firmware types:
-  - Companion, Repeater or Room Server
-- Once flashing is complete, you can connect with one of the MeshCore clients below.
+### Simple manual CLI
 
-## 📱 MeshCore Clients
+Open the USB serial port at 115200 baud and end each command with Enter/CR:
 
-**Companion Firmware**
-
-The companion firmware can be connected to via BLE, USB or Wi-Fi depending on the firmware type you flashed.
-
-- Web: https://app.meshcore.nz
-- Android: https://play.google.com/store/apps/details?id=com.liamcottle.meshcore.android
-- iOS: https://apps.apple.com/us/app/meshcore/id6742354151?platform=iphone
-- NodeJS: https://github.com/liamcottle/meshcore.js
-- Python: https://github.com/fdlamotte/meshcore-cli
-
-**Repeater and Room Server Firmware**
-
-The repeater and room server firmware can be set up via USB in the web config tool.
-
-- https://config.meshcore.io
-
-They can also be managed via LoRa in the mobile app by using the Remote Management feature.
-
-## 🛠 Hardware Compatibility
-
-MeshCore is designed for devices listed in the [MeshCore Flasher](https://meshcore.io/flasher)
-
-## 📜 License
-
-MeshCore is open-source software released under the MIT License. You are free to use, modify, and distribute it for personal and commercial projects.
-
-## Contributing
-
-Please submit PR's using 'dev' as the base branch!
-For minor changes just submit your PR and we'll try to review it, but for anything more 'impactful' please open an Issue first and start a discussion. It is better to sound out what it is you want to achieve first, and try to come to a consensus on what the best approach is, especially when it impacts the structure or architecture of this codebase.
-
-Here are some general principles you should try to adhere to:
-* Keep it simple. Please, don't think like a high-level lang programmer. Think embedded, and keep code concise, without any unnecessary layers.
-* No dynamic memory allocation, except during setup/begin functions.
-* Use the same brace and indenting style that's in the core source modules. (A .clang-format is probably going to be added soon, but please do NOT retroactively re-format existing code. This just creates unnecessary diffs that make finding problems harder)
-
-Help us prioritize! Please react with thumbs-up to issues/PRs you care about most. We look at reaction counts when planning work.
-
-### Running unit tests
-
-To run unit tests, run the following command:
-
-```bash
-pio test --environment native --verbose
+```text
+ulp
+ulp on
+ulp conservative
+ulp max
+ulp off
 ```
 
-## Road-Map / To-Do
+- `ulp` or `ulp status`: show MCU and radio state.
+- `ulp on` / `ulp balanced`: recommended balanced profile.
+- `ulp conservative`: more receive time, smaller savings.
+- `ulp max`: highest duty cycling; may not hear older pre-1.16 transmitters.
+- `ulp off`: continuous radio RX and no MCU sleep.
 
-There are a number of fairly major features in the pipeline, with no particular time-frames attached yet. In very rough chronological order:
-- [X] Companion radio: UI redesign
-- [X] Repeater + Room Server: add ACL's (like Sensor Node has)
-- [X] Standardise Bridge mode for repeaters
-- [ ] Repeater/Bridge: Standardise the Transport Codes for zoning/filtering
-- [X] Core + Repeater: enhanced zero-hop neighbour discovery
-- [ ] Core: round-trip manual path support
-- [ ] Companion + Apps: support for multiple sub-meshes (and 'off-grid' client repeat mode)
-- [ ] Core + Apps: support for LZW message compression
-- [ ] Core: dynamic CR (Coding Rate) for weak vs strong hops
-- [ ] Core: new framework for hosting multiple virtual nodes on one physical device
-- [ ] V2 protocol spec: discussion and consensus around V2 packet protocol, including path hashes, new encryption specs, etc
+Advanced EasySkyMesh-compatible controls remain available through `get radio.rxps`, `set radio.rxps ...`, and `powersaving ...`.
 
-## 📞 Get Support
+## Installation
 
-- Report bugs and request features on the [GitHub Issues](https://github.com/ripplebiz/MeshCore/issues) page.
-- Find additional guides and components on [my site](https://buymeacoffee.com/ripplebiz).
-- Join [MeshCore Discord](https://meshcore.gg) to chat with the developers and get help from the community.
+### ESP32 boards: V3, V4, Xiao ESP32-S3, RCC6
+
+- Normal update: flash the `*-app.bin` at address `0x10000`.
+- Recovery only: flash `*-full-recovery.bin` at `0x0`.
+- The full image includes the bootloader, partition table, and app. It does not deliberately erase the separate MeshCore filesystem, but normal app-only flashing is the identity-preserving path.
+- Never flash an image for another board.
+
+### nRF52 boards: RAK4631, RAK3401 1W, RC52
+
+- Enter the board's UF2 bootloader and copy the exact `.uf2` for that board.
+- This is an application image; do not erase or replace the SoftDevice/bootloader.
+- `.hex` is provided for advanced recovery tools.
+
+See [docs/INSTALL.md](docs/INSTALL.md) for board-specific notes and [docs/POWER_SAVING.md](docs/POWER_SAVING.md) for the tradeoffs.
+
+## Source and reproducibility
+
+- NeonPocket ULP base: IoTThinks/MeshCore `PowerSaving-v17` commit `a3b9ad91a5bf04e7e00713595469dc868de53628`.
+- MeshCore upstream base: 1.17.1 commit `d92964352441e53b93e8667b802e04f6e072b39e`.
+- EasySkyMesh reference release: [`PowerSaving17.1`](https://github.com/IoTThinks/EasySkyMesh/releases/tag/PowerSaving17.1).
+- All nine release environments are built by GitHub Actions and shipped with SHA-256 manifests.
+
+This community project is not an official Heltec, RAKwireless, Seeed Studio, MeshCore, or EasySkyMesh release.
+
+## License
+
+MIT, retaining all upstream notices. See [license.txt](license.txt) and [docs/EASYSKYMESH_ATTRIBUTION.md](docs/EASYSKYMESH_ATTRIBUTION.md).

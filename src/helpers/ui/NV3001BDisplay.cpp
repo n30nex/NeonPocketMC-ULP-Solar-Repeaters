@@ -1,6 +1,15 @@
 #include "NV3001BDisplay.h"
 #include <Arduino.h>
+#include <stdlib.h>
 #include <string.h>
+
+#if NV3001B_USE_FAST_GPIO
+  #if !defined(CONFIG_IDF_TARGET_ESP32C6)
+    #error "NV3001B_USE_FAST_GPIO is only supported on ESP32-C6"
+  #endif
+  #include <hal/gpio_ll.h>
+  #include <soc/gpio_struct.h>
+#endif
 
 #ifndef SPI_FREQUENCY
   #define SPI_FREQUENCY 8000000
@@ -68,6 +77,7 @@
 
 #define NV3001B_SWRESET 0x01
 #define NV3001B_SLPOUT  0x11
+#define NV3001B_INVOFF  0x20
 #define NV3001B_DISPON  0x29
 #define NV3001B_CASET   0x2A
 #define NV3001B_RASET   0x2B
@@ -97,15 +107,24 @@
 #endif
 
 // Color scheme
+#ifdef NEONPOCKET_UI
+ColorVal UIColor::window_bkg = 0x0000;
+ColorVal UIColor::title_bkg = 0x0000;
+ColorVal UIColor::primary_txt = 0xFFFF;
+ColorVal UIColor::popup_bkg = 0x0000;
+ColorVal UIColor::popup_txt = 0xFFFF;
+ColorVal UIColor::corp_blue = 0x001F;
+#else
 ColorVal UIColor::window_bkg = 0xFFFF;
 ColorVal UIColor::title_bkg = 0x001F;
-ColorVal UIColor::title_txt = 0xFFFF;
 ColorVal UIColor::primary_txt = 0x0000;
-ColorVal UIColor::secondary_txt = (18 << 11) | (36 << 5) | 18;  // mid-gray
-ColorVal UIColor::warning_txt = 0xFD20;
-ColorVal UIColor::popup_bkg =  0x07FF;  // CYAN
+ColorVal UIColor::popup_bkg = 0x07FF;  // CYAN
 ColorVal UIColor::popup_txt = 0x0000;
 ColorVal UIColor::corp_blue = 0x001A;
+#endif
+ColorVal UIColor::title_txt = 0xFFFF;
+ColorVal UIColor::secondary_txt = (18 << 11) | (36 << 5) | 18;  // mid-gray
+ColorVal UIColor::warning_txt = 0xFD20;
 
 static int scaleX(int x) {
   return (int)(x * DISPLAY_SCALE_X);
@@ -200,31 +219,97 @@ static void writeOptionalPin(int pin, int level) {
   digitalWrite(pin, level);
 }
 
+void NV3001BDisplay::beginTransport() {
+#if NV3001B_USE_SOFTWARE_SPI
+  pinMode(PIN_TFT_SCL, OUTPUT);
+  pinMode(PIN_TFT_SDA, OUTPUT);
+  digitalWrite(PIN_TFT_SCL, LOW);
+  digitalWrite(PIN_TFT_SDA, LOW);
+#else
+  if (external_spi) {
+  #if defined(NRF52_PLATFORM)
+    spi->setPins(PIN_TFT_MISO, PIN_TFT_SCL, PIN_TFT_SDA);
+  #endif
+    spi->begin();
+  } else {
+  #if defined(ESP32)
+    spi->begin(PIN_TFT_SCL, PIN_TFT_MISO, PIN_TFT_SDA, PIN_TFT_CS);
+  #else
+    spi->begin();
+  #endif
+  }
+#endif
+}
+
+void NV3001BDisplay::beginTransfer() {
+#if NV3001B_USE_SOFTWARE_SPI
+  digitalWrite(PIN_TFT_SCL, LOW);
+#else
+  spi->beginTransaction(SPISettings(SPI_FREQUENCY, MSBFIRST, SPI_MODE0));
+#endif
+}
+
+void NV3001BDisplay::transferByte(uint8_t value) {
+#if NV3001B_USE_SOFTWARE_SPI
+  for (uint8_t mask = 0x80; mask != 0; mask >>= 1) {
+  #if NV3001B_USE_FAST_GPIO
+    gpio_ll_set_level(&GPIO, PIN_TFT_SDA, (value & mask) ? HIGH : LOW);
+    gpio_ll_set_level(&GPIO, PIN_TFT_SCL, HIGH);
+    gpio_ll_set_level(&GPIO, PIN_TFT_SCL, LOW);
+  #else
+    digitalWrite(PIN_TFT_SDA, (value & mask) ? HIGH : LOW);
+    digitalWrite(PIN_TFT_SCL, HIGH);
+    digitalWrite(PIN_TFT_SCL, LOW);
+  #endif
+  }
+#else
+  spi->transfer(value);
+#endif
+}
+
+void NV3001BDisplay::endTransfer() {
+#if NV3001B_USE_SOFTWARE_SPI
+  digitalWrite(PIN_TFT_SCL, LOW);
+#else
+  spi->endTransaction();
+#endif
+}
+
 void NV3001BDisplay::writeCommand(uint8_t cmd) {
-  spi.beginTransaction(SPISettings(SPI_FREQUENCY, MSBFIRST, SPI_MODE0));
+  beginTransfer();
   digitalWrite(PIN_TFT_DC, LOW);
   digitalWrite(PIN_TFT_CS, LOW);
-  spi.transfer(cmd);
+  transferByte(cmd);
   digitalWrite(PIN_TFT_CS, HIGH);
-  spi.endTransaction();
+  endTransfer();
 }
 
 void NV3001BDisplay::writeBytes(const uint8_t* data, size_t len) {
   if (!data || len == 0) return;
 
-  spi.beginTransaction(SPISettings(SPI_FREQUENCY, MSBFIRST, SPI_MODE0));
+  beginTransfer();
   digitalWrite(PIN_TFT_DC, HIGH);
   digitalWrite(PIN_TFT_CS, LOW);
   for (size_t i = 0; i < len; i++) {
-    spi.transfer(data[i]);
+    transferByte(data[i]);
   }
   digitalWrite(PIN_TFT_CS, HIGH);
-  spi.endTransaction();
+  endTransfer();
 }
 
 void NV3001BDisplay::writeCommandData(uint8_t cmd, const uint8_t* data, size_t len) {
-  writeCommand(cmd);
-  writeBytes(data, len);
+  beginTransfer();
+  digitalWrite(PIN_TFT_CS, LOW);
+  digitalWrite(PIN_TFT_DC, LOW);
+  transferByte(cmd);
+  if (data && len) {
+    digitalWrite(PIN_TFT_DC, HIGH);
+    for (size_t i = 0; i < len; i++) {
+      transferByte(data[i]);
+    }
+  }
+  digitalWrite(PIN_TFT_CS, HIGH);
+  endTransfer();
 }
 
 void NV3001BDisplay::setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
@@ -243,24 +328,102 @@ void NV3001BDisplay::setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t 
   data[2] = y2 >> 8;
   data[3] = y2 & 0xff;
   writeCommandData(NV3001B_RASET, data, sizeof(data));
-
-  writeCommand(NV3001B_RAMWR);
 }
 
 void NV3001BDisplay::writeColor(uint16_t rgb, uint32_t count) {
   uint8_t hi = rgb >> 8;
   uint8_t lo = rgb & 0xff;
 
-  spi.beginTransaction(SPISettings(SPI_FREQUENCY, MSBFIRST, SPI_MODE0));
-  digitalWrite(PIN_TFT_DC, HIGH);
+  beginTransfer();
   digitalWrite(PIN_TFT_CS, LOW);
+  digitalWrite(PIN_TFT_DC, LOW);
+  transferByte(NV3001B_RAMWR);
+  digitalWrite(PIN_TFT_DC, HIGH);
   while (count--) {
-    spi.transfer(hi);
-    spi.transfer(lo);
+    transferByte(hi);
+    transferByte(lo);
   }
   digitalWrite(PIN_TFT_CS, HIGH);
-  spi.endTransaction();
+  endTransfer();
 }
+
+#if NV3001B_USE_FRAMEBUFFER
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+static uint64_t hashFramebufferPixels(const uint8_t* pixels, size_t count) {
+  uint64_t hash = 0xcbf29ce484222325ULL;
+  while (count--) {
+    hash ^= *pixels++;
+    hash *= 0x100000001b3ULL;
+  }
+  return hash;
+}
+
+bool NV3001BDisplay::framebufferPaletteIndex(uint16_t rgb, uint8_t& index) {
+  for (uint16_t i = 0; i < framebuffer_palette_size; i++) {
+    if (framebuffer_palette[i] == rgb) {
+      index = static_cast<uint8_t>(i);
+      return true;
+    }
+  }
+  if (framebuffer_palette_size == framebuffer_palette_capacity) return false;
+
+  index = static_cast<uint8_t>(framebuffer_palette_size);
+  framebuffer_palette[framebuffer_palette_size++] = rgb;
+  return true;
+}
+#else
+static uint64_t hashFramebufferPixels(const uint16_t* pixels, size_t count) {
+  uint64_t hash = 0xcbf29ce484222325ULL;
+  while (count--) {
+    const uint16_t pixel = *pixels++;
+    hash ^= pixel >> 8;
+    hash *= 0x100000001b3ULL;
+    hash ^= pixel & 0xff;
+    hash *= 0x100000001b3ULL;
+  }
+  return hash;
+}
+#endif
+
+void NV3001BDisplay::flushFramebuffer() {
+  if (!framebuffer || !is_on) return;
+
+  const bool force_full = !framebuffer_hashes_valid || framebuffer_flushes_since_full == 255;
+  for (uint16_t band = 0, y = 0; y < NV3001B_SCREEN_HEIGHT;
+       band++, y += framebuffer_band_rows) {
+    const uint16_t rows = y + framebuffer_band_rows <= NV3001B_SCREEN_HEIGHT
+        ? framebuffer_band_rows : NV3001B_SCREEN_HEIGHT - y;
+    const size_t first = (size_t)y * NV3001B_SCREEN_WIDTH;
+    const size_t count = (size_t)rows * NV3001B_SCREEN_WIDTH;
+    const uint64_t hash = hashFramebufferPixels(framebuffer + first, count);
+    if (!force_full && hash == framebuffer_band_hashes[band]) continue;
+
+    setAddrWindow(0, y, NV3001B_SCREEN_WIDTH, rows);
+    beginTransfer();
+    digitalWrite(PIN_TFT_CS, LOW);
+    digitalWrite(PIN_TFT_DC, LOW);
+    transferByte(NV3001B_RAMWR);
+    digitalWrite(PIN_TFT_DC, HIGH);
+    const size_t end = first + count;
+    for (size_t i = first; i < end; i++) {
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+      const uint16_t pixel = framebuffer_palette[framebuffer[i]];
+#else
+      const uint16_t pixel = framebuffer[i];
+#endif
+      transferByte(pixel >> 8);
+      transferByte(pixel & 0xff);
+    }
+    digitalWrite(PIN_TFT_CS, HIGH);
+    endTransfer();
+    framebuffer_band_hashes[band] = hash;
+    if (y + rows < NV3001B_SCREEN_HEIGHT) yield();
+  }
+
+  framebuffer_hashes_valid = true;
+  framebuffer_flushes_since_full = force_full ? 0 : framebuffer_flushes_since_full + 1;
+}
+#endif
 
 void NV3001BDisplay::initPanel() {
 #define CMD0(C) do { writeCommand(C); } while (0)
@@ -369,6 +532,7 @@ void NV3001BDisplay::initPanel() {
   delay(120);
   CMD1(NV3001B_COLMOD, 0x05);
   CMD1(NV3001B_MADCTL, nv3001bMADCTL(DISPLAY_ROTATION));
+  CMD0(NV3001B_INVOFF);
   CMD0(NV3001B_DISPON);
   delay(10);
 
@@ -392,16 +556,46 @@ void NV3001BDisplay::fillPhysicalRect(int x, int y, int w, int h) {
   if (y + h > NV3001B_SCREEN_HEIGHT) h = NV3001B_SCREEN_HEIGHT - y;
   if (w <= 0 || h <= 0) return;
 
+#if NV3001B_USE_FRAMEBUFFER
+  if (framebuffer) {
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+    uint8_t index;
+    if (!framebufferPaletteIndex(color, index)) {
+      Serial.println("NV3001B: indexed framebuffer palette exhausted");
+      writeOptionalPin(PIN_TFT_BL, !PIN_TFT_BL_ACTIVE);
+      writeOptionalPin(PIN_TFT_EN, !PIN_TFT_EN_ACTIVE);
+      is_on = false;
+      if (periph_power) periph_power->release();
+      return;
+    }
+    for (int row = 0; row < h; row++) {
+      uint8_t* dest = framebuffer + (y + row) * NV3001B_SCREEN_WIDTH + x;
+      memset(dest, index, w);
+    }
+#else
+    for (int row = 0; row < h; row++) {
+      uint16_t* dest = framebuffer + (y + row) * NV3001B_SCREEN_WIDTH + x;
+      for (int col = 0; col < w; col++) dest[col] = color;
+    }
+#endif
+    return;
+  }
+#endif
+
   setAddrWindow(x, y, w, h);
   writeColor(color, (uint32_t)w * h);
 }
 
 void NV3001BDisplay::drawChar(int x, int y, char ch) {
-  if (ch < 32 || ch > 127) ch = '?';
-
-  uint16_t index = (uint16_t)(ch - 32) * 5;
   int scale_x = textPixelScaleX(text_size);
   int scale_y = textPixelScaleY(text_size);
+  if ((uint8_t)ch == 0xDB) {
+    fillPhysicalRect(x, y, 5 * scale_x, 7 * scale_y);
+    return;
+  }
+  if ((uint8_t)ch < 32 || (uint8_t)ch > 127) ch = '?';
+
+  uint16_t index = (uint16_t)(ch - 32) * 5;
   for (int col = 0; col < 5; col++) {
     uint8_t line = pgm_read_byte(font5x7 + index + col);
     for (int row = 0; row < 7; row++) {
@@ -419,27 +613,73 @@ bool NV3001BDisplay::begin() {
 
   setupOptionalOutput(PIN_TFT_EN, PIN_TFT_EN_ACTIVE);
   setupOptionalOutput(PIN_TFT_BL, !PIN_TFT_BL_ACTIVE);
+#ifdef RC52_STARTUP_DIAGNOSTICS
+  Serial.print("RC52_DIAG tft-power en=");
+  Serial.print(digitalRead(PIN_TFT_EN));
+  Serial.print(" bl=");
+  Serial.println(digitalRead(PIN_TFT_BL));
+#endif
   pinMode(PIN_TFT_CS, OUTPUT);
   pinMode(PIN_TFT_DC, OUTPUT);
   digitalWrite(PIN_TFT_CS, HIGH);
   digitalWrite(PIN_TFT_DC, HIGH);
   delay(20);
 
-  spi.begin(PIN_TFT_SCL, PIN_TFT_MISO, PIN_TFT_SDA, PIN_TFT_CS);
+  beginTransport();
+#ifdef RC52_STARTUP_DIAGNOSTICS
+  Serial.println("RC52_DIAG tft-spi=ready");
+#endif
   if (PIN_TFT_RST >= 0) {
     pinMode(PIN_TFT_RST, OUTPUT);
     digitalWrite(PIN_TFT_RST, HIGH);
-    delay(10);
+    delay(100);
     digitalWrite(PIN_TFT_RST, LOW);
-    delay(20);
+    delay(120);
     digitalWrite(PIN_TFT_RST, HIGH);
     delay(120);
   }
 
   initPanel();
+#ifdef RC52_STARTUP_DIAGNOSTICS
+  Serial.println("RC52_DIAG tft-panel-init=sent");
+#endif
   is_on = true;
   color = 0x0000;
+#if NV3001B_USE_FRAMEBUFFER
+  setAddrWindow(0, 0, NV3001B_SCREEN_WIDTH, NV3001B_SCREEN_HEIGHT);
+  writeColor(color, (uint32_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT);
+  if (!framebuffer_allocation_attempted) {
+    framebuffer_allocation_attempted = true;
+    const size_t pixels = (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT;
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+    framebuffer = static_cast<uint8_t*>(calloc(pixels, sizeof(uint8_t)));
+#else
+    framebuffer = static_cast<uint16_t*>(calloc(pixels, sizeof(uint16_t)));
+#endif
+    Serial.print("NV3001B: framebuffer ");
+    Serial.print(framebuffer ? "allocated (" : "allocation failed (");
+    Serial.print((unsigned)(pixels * sizeof(*framebuffer)));
+    Serial.println(" bytes)");
+  } else if (framebuffer) {
+    memset(framebuffer, 0,
+        (size_t)NV3001B_SCREEN_WIDTH * NV3001B_SCREEN_HEIGHT * sizeof(*framebuffer));
+  }
+  if (!framebuffer) {
+    writeOptionalPin(PIN_TFT_BL, !PIN_TFT_BL_ACTIVE);
+    writeOptionalPin(PIN_TFT_EN, !PIN_TFT_EN_ACTIVE);
+    is_on = false;
+    if (periph_power) periph_power->release();
+    return false;
+  }
+#if NV3001B_USE_INDEXED_FRAMEBUFFER
+  framebuffer_palette[0] = 0x0000;
+  framebuffer_palette_size = 1;
+#endif
+  framebuffer_hashes_valid = false;
+  framebuffer_flushes_since_full = 0;
+#else
   fillPhysicalRect(0, 0, NV3001B_SCREEN_WIDTH, NV3001B_SCREEN_HEIGHT);
+#endif
   color = 0xffff;
   text_size = 1;
   cursor_x = 0;
@@ -455,6 +695,9 @@ void NV3001BDisplay::turnOn() {
 void NV3001BDisplay::turnOff() {
   if (!is_on) return;
 
+#if NV3001B_USE_FRAMEBUFFER
+  framebuffer_hashes_valid = false;
+#endif
   writeOptionalPin(PIN_TFT_BL, !PIN_TFT_BL_ACTIVE);
   writeOptionalPin(PIN_TFT_EN, !PIN_TFT_EN_ACTIVE);
   is_on = false;
@@ -465,6 +708,10 @@ void NV3001BDisplay::clear() {
   uint16_t saved = color;
   color = UIColor::window_bkg;
   fillPhysicalRect(0, 0, NV3001B_SCREEN_WIDTH, NV3001B_SCREEN_HEIGHT);
+#if NV3001B_USE_FRAMEBUFFER
+  framebuffer_hashes_valid = false;
+  flushFramebuffer();
+#endif
   color = saved;
 }
 
@@ -509,6 +756,60 @@ void NV3001BDisplay::print(const char* str) {
   }
 }
 
+void NV3001BDisplay::printWordWrap(const char* str, int max_width) {
+  if (!str || !is_on || max_width <= 0) return;
+
+  const int line_start = cursor_x;
+  int line_end = line_start + scaleWidth(0, max_width);
+  if (line_end > NV3001B_SCREEN_WIDTH) line_end = NV3001B_SCREEN_WIDTH;
+  const int char_width = 6 * textPixelScaleX(text_size);
+  if (line_end - line_start < char_width) return;
+  const int glyph_height = 7 * textPixelScaleY(text_size);
+  const int line_height = 8 * textPixelScaleY(text_size);
+  int bottom = scaleY(NV3001B_LOGICAL_HEIGHT);
+  if (bottom > NV3001B_SCREEN_HEIGHT) bottom = NV3001B_SCREEN_HEIGHT;
+
+  auto nextLine = [&]() {
+    cursor_x = line_start;
+    cursor_y += line_height;
+    return cursor_y + glyph_height <= bottom;
+  };
+
+  while (*str && cursor_y + glyph_height <= bottom) {
+    if (*str == '\n') {
+      str++;
+      if (!nextLine()) return;
+      continue;
+    }
+    if (*str == '\r') {
+      str++;
+      continue;
+    }
+    if (*str == ' ' || *str == '\t') {
+      if (cursor_x != line_start) {
+        if (cursor_x + char_width > line_end) {
+          if (!nextLine()) return;
+        } else {
+          cursor_x += char_width;
+        }
+      }
+      str++;
+      continue;
+    }
+
+    const char* word_end = str;
+    while (*word_end && *word_end != ' ' && *word_end != '\t' &&
+           *word_end != '\n' && *word_end != '\r') word_end++;
+    const int word_width = (word_end - str) * char_width;
+    if (cursor_x != line_start && cursor_x + word_width > line_end && !nextLine()) return;
+    while (str < word_end) {
+      if (cursor_x != line_start && cursor_x + char_width > line_end && !nextLine()) return;
+      drawChar(cursor_x, cursor_y, *str++);
+      cursor_x += char_width;
+    }
+  }
+}
+
 void NV3001BDisplay::fillRect(int x, int y, int w, int h) {
   fillPhysicalRect(scaleX(x), scaleY(y), scaleWidth(x, w), scaleHeight(y, h));
 }
@@ -548,4 +849,7 @@ uint16_t NV3001BDisplay::getTextWidth(const char* str) {
 }
 
 void NV3001BDisplay::endFrame() {
+#if NV3001B_USE_FRAMEBUFFER
+  flushFramebuffer();
+#endif
 }

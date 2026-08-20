@@ -940,6 +940,15 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.interference_threshold = 0; // disabled
   _prefs.cad_enabled = 0;            // hardware CAD before TX (off by default; 'set cad on')
 
+#if defined(NEONPOCKET_ULP_SOLAR)
+  // NeonPocket ULP profiles start new installations in the balanced mode.
+  // Persisted preferences are loaded later and always win on upgrades.
+  _prefs.powersaving_enabled = 1;
+  _prefs.rxps.enabled = 1;
+  _prefs.rxps.level = RX_POWERSAVING_BALANCED_LEVEL;
+  _prefs.rxps.preamble = RX_POWERSAVING_PROFILE_PREAMBLE;
+#endif
+
   // bridge defaults
   _prefs.bridge_enabled = 1;    // enabled
   _prefs.bridge_delay   = 500;  // milliseconds

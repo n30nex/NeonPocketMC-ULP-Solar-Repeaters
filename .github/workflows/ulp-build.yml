@@ -1,0 +1,106 @@
+name: Build ULP Solar Repeaters
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-build-environment
+      - name: Verify release contract
+        run: |
+          python scripts/verify_ulp_release.py
+          python tools/configure_ulp.py --self-test
+          pio project config --json-output >/dev/null
+      - name: Run upstream unit tests
+        run: pio test -e native -e native_kiss_modem
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - env: neonpocket_ulp_heltec_v3
+            slug: Heltec-V3
+            family: esp
+          - env: neonpocket_ulp_heltec_v4
+            slug: Heltec-V4
+            family: esp
+          - env: neonpocket_ulp_rak4631
+            slug: RAK4631
+            family: nrf
+          - env: neonpocket_ulp_rak3401_1w
+            slug: RAK3401-1W
+            family: nrf
+          - env: neonpocket_ulp_xiao_esp32s3
+            slug: Xiao-ESP32S3
+            family: esp
+          - env: neonpocket_ulp_rcc6_headless
+            slug: RCC6-Headless
+            family: esp
+          - env: neonpocket_ulp_rcc6_tft
+            slug: RCC6-TFT
+            family: esp
+          - env: neonpocket_ulp_rc52_headless
+            slug: RC52-Headless
+            family: nrf
+          - env: neonpocket_ulp_rc52_tft
+            slug: RC52-TFT
+            family: nrf
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-build-environment
+      - name: Build ${{ matrix.env }}
+        run: pio run -e "${{ matrix.env }}"
+      - name: Create install image
+        run: |
+          if [ "${{ matrix.family }}" = esp ]; then
+            pio run -e "${{ matrix.env }}" -t mergebin
+          else
+            pio run -e "${{ matrix.env }}" -t create_uf2
+          fi
+      - name: Package
+        run: >-
+          python scripts/package_ulp_build.py
+          --env "${{ matrix.env }}"
+          --slug "${{ matrix.slug }}"
+          --family "${{ matrix.family }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: NeonPocketMC-ULP-${{ matrix.slug }}-${{ github.sha }}
+          path: dist/${{ matrix.slug }}/
+          if-no-files-found: error
+
+  bundle:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          path: NeonPocketMC-ULP-builds
+      - name: Add configurator and exact source
+        run: |
+          zip -j NeonPocketMC-ULP-builds/NeonPocketMC-ULP-Configurator.zip \
+            tools/configure_ulp.py tools/configure-ulp-windows.bat \
+            tools/configure-ulp-linux.sh tools/requirements.txt
+          git archive --format=zip --output=NeonPocketMC-ULP-builds/NeonPocketMC-ULP-source-${GITHUB_SHA}.zip HEAD
+      - name: Create aggregate manifest
+        run: |
+          cd NeonPocketMC-ULP-builds
+          find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: NeonPocketMC-ULP-all-${{ github.sha }}
+          path: NeonPocketMC-ULP-builds/
+          if-no-files-found: error
