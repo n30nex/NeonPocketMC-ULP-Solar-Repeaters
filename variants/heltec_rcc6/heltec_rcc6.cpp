@@ -44,5 +44,9 @@ uint16_t HeltecRCC6Board::getBattMilliVolts() {
   raw /= 8;
   digitalWrite(PIN_ADC_CTRL, !ADC_CTRL_ENABLED);
 
-  return adcMultiplier * raw;
+  const uint32_t measured = adcMultiplier * raw;
+  // RCC6 VBAT is a single-cell lithium rail. USB power, a disconnected cell,
+  // or a stale custom multiplier can otherwise produce impossible readings.
+  // Report unavailable instead of publishing false battery telemetry.
+  return measured <= 4500 ? measured : 0;
 }

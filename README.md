@@ -46,9 +46,11 @@ Saved preferences always win after an upgrade. A previously configured device is
 3. Download the release's `NeonPocketMC-ULP-Configurator.zip`.
 4. Windows: double-click `configure-ulp-windows.bat`.
 5. Linux: run `sh configure-ulp-linux.sh`.
-6. Pick the serial device, region, name, transmit power, admin password, and ULP profile.
+6. Pick the serial device, region, name, transmit power, map-location policy, admin password, and ULP profile.
 
 The wizard verifies that it is talking to NeonPocket ULP firmware before changing anything.
+
+ULP builds configure over USB and **do not create a Wi-Fi access point or WebUI**. Keep USB connected until the wizard reports success. If location sharing is enabled, the wizard explicitly sets `gps advert prefs`; choosing no sets `gps advert none`. A TFT may show `BAT: --` on USB when RCC6 cannot produce a physically valid single-cell reading rather than displaying a false voltage.
 
 ### Simple manual CLI
 

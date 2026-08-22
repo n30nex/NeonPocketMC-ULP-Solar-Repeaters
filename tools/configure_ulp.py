@@ -51,6 +51,61 @@ def ask_text(label: str, default: str, maximum: int) -> str:
         print(f"Use 1-{maximum} bytes and avoid []\\:,?*.")
 
 
+def ask_yes_no(label: str, default: bool = True) -> bool:
+    suffix = "Y/n" if default else "y/N"
+    while True:
+        value = input(f"{label} [{suffix}]: ").strip().lower()
+        if not value:
+            return default
+        if value in ("y", "yes"):
+            return True
+        if value in ("n", "no"):
+            return False
+        print("Enter y or n.")
+
+
+def ask_coordinate(label: str, minimum: float, maximum: float) -> float | None:
+    while True:
+        value = input(f"{label} (optional): ").strip()
+        if not value:
+            return None
+        try:
+            number = float(value)
+        except ValueError:
+            number = minimum - 1
+        if minimum <= number <= maximum:
+            return number
+        print(f"Enter a value from {minimum:g} to {maximum:g}, or press Enter to keep the saved value.")
+
+
+def build_commands(
+    name: str,
+    preset: tuple,
+    tx: int,
+    profile: str,
+    password: str,
+    advertise_location: bool,
+    latitude: float | None,
+    longitude: float | None,
+) -> list[tuple[str, bool]]:
+    commands = [
+        (f"set name {name}", False),
+        (f"set radio {preset[1]},{preset[2]},{preset[3]},{preset[4]}", False),
+        (f"set tx {tx}", False),
+        (f"ulp {profile}", False),
+    ]
+    if latitude is not None:
+        commands.append((f"set lat {latitude:.6f}", False))
+    if longitude is not None:
+        commands.append((f"set lon {longitude:.6f}", False))
+    commands.extend([
+        ("gps advert prefs" if advertise_location else "gps advert none", False),
+        (f"password {password}", True),
+        ("advert", False),
+    ])
+    return commands
+
+
 def choose_port(requested: str | None) -> str:
     if requested:
         return requested
@@ -119,6 +174,12 @@ class Device:
 def self_test() -> None:
     assert len(PRESETS) >= 8
     assert [p[0] for p in PROFILES] == ["balanced", "conservative", "max", "off"]
+    commands = build_commands("Test", PRESETS[0], 20, "balanced", "testpass", True, 43.5, -80.25)
+    plain = [command for command, _secret in commands]
+    assert "set lat 43.500000" in plain
+    assert "set lon -80.250000" in plain
+    assert "gps advert prefs" in plain
+    assert build_commands("Test", PRESETS[0], 20, "off", "testpass", False, None, None)[-3][0] == "gps advert none"
     print("ULP configurator self-test passed")
 
 
@@ -144,6 +205,15 @@ def run(port: str | None) -> None:
             print(f"  {index}. {profile[0]} — {profile[1]}")
         profile = PROFILES[ask_number("Choose a profile", 1, len(PROFILES), 1) - 1][0]
 
+        print("\nMap location:")
+        advertise_location = ask_yes_no("Include the saved location in repeater adverts", True)
+        latitude = longitude = None
+        if advertise_location and ask_yes_no("Update the saved coordinates now", False):
+            latitude = ask_coordinate("Latitude (-90 to 90)", -90.0, 90.0)
+            longitude = ask_coordinate("Longitude (-180 to 180)", -180.0, 180.0)
+            if latitude is None or longitude is None:
+                raise SetupError("Enter both latitude and longitude, or answer no to updating coordinates.")
+
         while True:
             password = getpass.getpass("New admin password (8-15 characters): ")
             if 8 <= len(password) <= 15 and password == getpass.getpass("Confirm password: "):
@@ -151,12 +221,15 @@ def run(port: str | None) -> None:
             print("Passwords must match and be 8-15 characters.")
 
         print("\nApplying settings:")
-        device.command(f"set name {name}")
-        device.command(f"set radio {preset[1]},{preset[2]},{preset[3]},{preset[4]}")
-        device.command(f"set tx {tx}")
-        device.command(f"ulp {profile}")
-        device.command(f"password {password}", secret=True)
-        device.command("advert")
+        for command, secret in build_commands(
+            name, preset, tx, profile, password,
+            advertise_location, latitude, longitude,
+        ):
+            device.command(command, secret=secret)
+        location_policy = device.command("gps advert")
+        expected_policy = "prefs" if advertise_location else "none"
+        if expected_policy not in location_policy.lower():
+            raise SetupError(f"Location advert policy did not verify: {location_policy}")
         print("\nSetup complete. Restart once, keep the antenna attached, then deploy.")
     finally:
         device.close()

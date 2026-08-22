@@ -37,10 +37,24 @@ def main() -> int:
 
     mesh = (ROOT / "examples/simple_repeater/MyMesh.cpp").read_text(encoding="utf-8")
     cli = (ROOT / "src/helpers/CommonCLI.cpp").read_text(encoding="utf-8")
+    rcc6 = (ROOT / "variants/heltec_rcc6/heltec_rcc6.cpp").read_text(encoding="utf-8")
+    ui = (ROOT / "examples/simple_repeater/UITask.cpp").read_text(encoding="utf-8")
+    configurator = (ROOT / "tools/configure_ulp.py").read_text(encoding="utf-8")
     require("_prefs.powersaving_enabled = 1;" in mesh, "MCU saving must default on")
     require("_prefs.rxps.enabled = 1;" in mesh, "radio RX saving must default on")
     for command in ("ulp status", "ulp balanced", "ulp conservative", "ulp max", "ulp off"):
         require(f'"{command}"' in cli, f"missing CLI command {command}")
+    require(cli.count("_prefs->advert_loc_policy = ADVERT_LOC_PREFS;") >= 3,
+            "setting ULP coordinates must enable saved-location adverts")
+    gps_guard = cli.index("#if ENV_INCLUDE_GPS == 1")
+    require(cli.index('strcmp(command, "gps advert")') < gps_guard,
+            "saved-location advert policy must work without physical GPS hardware")
+    require("measured <= 4500 ? measured : 0" in rcc6,
+            "RCC6 must reject impossible single-cell battery readings")
+    require('strcpy(tmp, "BAT: --")' in ui,
+            "display must not present an unavailable battery reading as 0 V")
+    require('"gps advert prefs" if advertise_location else "gps advert none"' in configurator,
+            "configurator must set the location advert policy explicitly")
 
     for path in (
         "boards/heltec_rc52.json",
@@ -53,7 +67,7 @@ def main() -> int:
         require((ROOT / path).is_file(), f"missing required file: {path}")
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for text in ("IoTThinks", "PowerSaving-v17", "power saving is ON by default", "external MPPT"):
+    for text in ("IoTThinks", "PowerSaving-v17", "power saving is ON by default", "external MPPT", "do not create a Wi-Fi access point"):
         require(text.lower() in readme.lower(), f"README missing: {text}")
     print("Verified 10-profile NeonPocketMC ULP release contract")
     return 0
