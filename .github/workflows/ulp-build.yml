@@ -3,7 +3,7 @@ name: Build ULP Solar Repeaters
 
 on:
   push:
-    branches: [main, "codex/**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -110,3 +110,11 @@ jobs:
           name: NeonPocketMC-ULP-all-${{ github.sha }}
           path: NeonPocketMC-ULP-builds/
           if-no-files-found: error
+
+  required-firmware:
+    if: always()
+    needs: bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require complete ULP package
+        run: test "${{ needs.bundle.result }}" = "success"
