@@ -110,7 +110,12 @@ void UITask::renderCurrScreen() {
 
     // Battery
     _display->setCursor(0, 40);
-    sprintf(tmp, "BAT: %.2fV", _board->getBattMilliVolts() / 1000.0);
+    const uint16_t batt_mv = _board->getBattMilliVolts();
+    if (batt_mv == 0) {
+      strcpy(tmp, "BAT: --");
+    } else {
+      sprintf(tmp, "BAT: %.2fV", batt_mv / 1000.0);
+    }
     _display->print(tmp);
 
     // PowerSaving

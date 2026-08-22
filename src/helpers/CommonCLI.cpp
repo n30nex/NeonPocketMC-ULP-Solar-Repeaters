@@ -719,10 +719,19 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
     }
   } else if (memcmp(config, "lat ", 4) == 0) {
     _prefs->node_lat = atof(&config[4]);
+#ifdef NEONPOCKET_ULP_SOLAR
+    // The ULP setup surfaces latitude/longitude as the repeater's advertised
+    // map location. Keep the privacy control explicit: `gps advert none` can
+    // still disable it after coordinates are set.
+    _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
+#endif
     savePrefs();
     strcpy(reply, "OK");
   } else if (memcmp(config, "lon ", 4) == 0) {
     _prefs->node_lon = atof(&config[4]);
+#ifdef NEONPOCKET_ULP_SOLAR
+    _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
+#endif
     savePrefs();
     strcpy(reply, "OK");
   } else if (memcmp(config, "rxdelay ", 8) == 0) {

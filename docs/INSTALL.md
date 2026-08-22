@@ -24,6 +24,8 @@ RCC6/RC52, or screen/headless images.
 
 Keep USB connected after the reboot and run the packaged configurator. It verifies the NeonPocket ULP version and then writes the node name, radio preset, TX power, power profile, and a replacement admin password.
 
+The configurator also asks whether the saved map location should be included in adverts. ULP repeater builds use USB CLI only; they do not start a setup Wi-Fi access point or host a WebUI.
+
 The firmware's compile-time admin password is `password` only for first access. Replace it during onboarding before deployment.
 
 ## Solar deployment
