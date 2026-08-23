@@ -49,6 +49,8 @@ def main() -> int:
     gps_guard = cli.index("#if ENV_INCLUDE_GPS == 1")
     require(cli.index('strcmp(command, "gps advert")') < gps_guard,
             "saved-location advert policy must work without physical GPS hardware")
+    require(cli.index('strcmp(command, "gps advert share")') > gps_guard,
+            "live-location advert policy must require physical GPS hardware")
     require("measured <= 4500 ? measured : 0" in rcc6,
             "RCC6 must reject impossible single-cell battery readings")
     require('strcpy(tmp, "BAT: --")' in ui,
