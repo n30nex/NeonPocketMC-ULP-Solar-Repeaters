@@ -47,6 +47,10 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
   //    fs->remove("/com_prefs");  // remove old
     }
   }
+  if (_prefs->advert_loc_policy == ADVERT_LOC_SHARE && _sensors->getLocationProvider() == NULL) {
+    _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
+    savePrefs(fs);
+  }
 }
 
 void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {  // Legacy prefs loader
@@ -376,14 +380,18 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       _prefs->advert_loc_policy = ADVERT_LOC_NONE;
       savePrefs();
       strcpy(reply, "ok");
-    } else if (strcmp(command, "gps advert share") == 0) {
-      _prefs->advert_loc_policy = ADVERT_LOC_SHARE;
-      savePrefs();
-      strcpy(reply, "ok");
     } else if (strcmp(command, "gps advert prefs") == 0) {
       _prefs->advert_loc_policy = ADVERT_LOC_PREFS;
       savePrefs();
       strcpy(reply, "ok");
+    } else if (strcmp(command, "gps advert share") == 0) {
+      if (_sensors->getLocationProvider() != NULL) {
+        _prefs->advert_loc_policy = ADVERT_LOC_SHARE;
+        savePrefs();
+        strcpy(reply, "ok");
+      } else {
+        strcpy(reply, "gps provider not found");
+      }
 #if ENV_INCLUDE_GPS == 1
     } else if (memcmp(command, "gps on", 6) == 0) {
       if (_sensors->setSettingValue("gps", "1")) {
