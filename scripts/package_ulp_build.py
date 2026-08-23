@@ -22,7 +22,7 @@ def main() -> int:
     parser.add_argument("--env", required=True)
     parser.add_argument("--slug", required=True)
     parser.add_argument("--family", choices=("esp", "nrf"), required=True)
-    parser.add_argument("--version", default="v1.0.0-rc.2")
+    parser.add_argument("--version", default="v1.0.0-rc.3")
     parser.add_argument("--output", default="dist")
     args = parser.parse_args()
 
