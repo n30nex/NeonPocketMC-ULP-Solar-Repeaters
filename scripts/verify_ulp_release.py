@@ -46,11 +46,14 @@ def main() -> int:
         require(f'"{command}"' in cli, f"missing CLI command {command}")
     require(cli.count("_prefs->advert_loc_policy = ADVERT_LOC_PREFS;") >= 4,
             "setting ULP coordinates must enable saved-location adverts")
-    gps_guard = cli.index("#if ENV_INCLUDE_GPS == 1")
-    require(cli.index('strcmp(command, "gps advert")') < gps_guard,
+    share_command = cli.index('strcmp(command, "gps advert share")')
+    gps_guard = cli.index("#if ENV_INCLUDE_GPS == 1", share_command)
+    require(cli.index('strcmp(command, "gps advert")') < share_command,
             "saved-location advert policy must work without physical GPS hardware")
-    require(cli.index('strcmp(command, "gps advert share")') > gps_guard,
-            "live-location advert policy must require physical GPS hardware")
+    require("_sensors->getLocationProvider() != NULL" in cli[share_command:gps_guard],
+            "live-location advert policy must require an actual GPS provider")
+    require("_sensors->getLocationProvider() == NULL" in cli,
+            "saved live-location mode must normalize only without a GPS provider")
     require("measured <= 4500 ? measured : 0" in rcc6,
             "RCC6 must reject impossible single-cell battery readings")
     require('strcpy(tmp, "BAT: --")' in ui,
