@@ -44,7 +44,7 @@ def main() -> int:
     require("_prefs.rxps.enabled = 1;" in mesh, "radio RX saving must default on")
     for command in ("ulp status", "ulp balanced", "ulp conservative", "ulp max", "ulp off"):
         require(f'"{command}"' in cli, f"missing CLI command {command}")
-    require(cli.count("_prefs->advert_loc_policy = ADVERT_LOC_PREFS;") >= 3,
+    require(cli.count("_prefs->advert_loc_policy = ADVERT_LOC_PREFS;") >= 4,
             "setting ULP coordinates must enable saved-location adverts")
     gps_guard = cli.index("#if ENV_INCLUDE_GPS == 1")
     require(cli.index('strcmp(command, "gps advert")') < gps_guard,
