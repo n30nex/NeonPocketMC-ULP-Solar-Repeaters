@@ -6,6 +6,11 @@
 
 Experimental, low-power MeshCore repeaters for solar and battery deployments.
 
+Current candidate: [v1.0.0-rc.4](https://github.com/n30nex/NeonPocketMC-ULP-Solar-Repeaters/releases/tag/v1.0.0-rc.4),
+including the corrected [USB configurator](https://github.com/n30nex/NeonPocketMC-ULP-Solar-Repeaters/releases/download/v1.0.0-rc.4/NeonPocketMC-ULP-Configurator.zip)
+for nRF52 serial replies and macOS setup. Existing rc.2/rc.3 users can use the
+updated configurator without reflashing or resetting saved settings.
+
 This firmware is built from [IoTThinks' PowerSaving-v17 MeshCore fork](https://github.com/IoTThinks/MeshCore/tree/PowerSaving-v17), with the power-saving work fully attributed in [docs/EASYSKYMESH_ATTRIBUTION.md](docs/EASYSKYMESH_ATTRIBUTION.md). It tracks MeshCore 1.17.1 and adds NeonPocketMC hardware profiles, default-on setup, a simpler `ulp` command, TFT support for RCC6/RC52, packaging, and a guided USB configurator.
 
 > **Experimental.** RX duty cycling saves power by intentionally spending part of each interval asleep. A ULP repeater can miss packets that a continuously listening repeater would receive. Test coverage and current draw at the actual deployment site before relying on it.
@@ -45,10 +50,15 @@ Saved preferences always win after an upgrade. A previously configured device is
 2. Keep USB and the antenna connected.
 3. Download the release's `NeonPocketMC-ULP-Configurator.zip`.
 4. Windows: double-click `configure-ulp-windows.bat`.
-5. Linux: run `sh configure-ulp-linux.sh`.
+5. Linux/macOS: run `sh configure-ulp-linux.sh` (Python 3.10 or newer).
 6. Pick the serial device, region, name, transmit power, map-location policy, admin password, and ULP profile.
 
 The wizard verifies that it is talking to NeonPocket ULP firmware before changing anything.
+
+On macOS, select the repeater's `/dev/cu.usbmodem...` port and close other serial
+terminals or browser connections first. The same shell launcher works on Intel
+and Apple Silicon Macs. For a port that opens but times out at `ver`, see
+[USB configurator troubleshooting](docs/INSTALL.md#usb-configurator-troubleshooting).
 
 ULP builds configure over USB and **do not create a Wi-Fi access point or WebUI**. Keep USB connected until the wizard reports success. If location sharing is enabled, the wizard explicitly sets `gps advert prefs`; choosing no sets `gps advert none`. A TFT may show `BAT: --` on USB when RCC6 cannot produce a physically valid single-cell reading rather than displaying a false voltage.
 

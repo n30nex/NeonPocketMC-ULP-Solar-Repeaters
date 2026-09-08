@@ -28,6 +28,27 @@ The configurator also asks whether the saved map location should be included in 
 
 The firmware's compile-time admin password is `password` only for first access. Replace it during onboarding before deployment.
 
+## USB configurator troubleshooting
+
+If the port opens but `ver` gets no reply on a RAK or another nRF52 board, check
+the configurator's `Device` setup: older copies explicitly set
+`self.serial.dtr = False`. The firmware's TinyUSB serial stack requires DTR to
+send replies, even though it can still receive commands. Use the corrected
+`tools/configure_ulp.py`, which sets DTR to `True` and leaves RTS `False`.
+This is a host configurator fix; it does not require reflashing the repeater or
+resetting its saved settings. It applies to the rc.2 and rc.3 firmware.
+
+On macOS, including Apple Silicon with Python 3.11, run
+`sh configure-ulp-linux.sh` from the extracted configurator folder. Choose the
+repeater's `/dev/cu.usbmodem...` device, or pass its exact name with `--port`.
+Close any other terminal or browser tab holding the port. The firmware accepts
+115200 baud with carriage-return command endings.
+
+The corrected parser also waits for a complete reply line, so USB packet splits
+cannot truncate the firmware version or turn a partial error into success.
+To check the connection without applying settings again, stop with Ctrl-C after
+the wizard prints `Verified` and prompts for the repeater name.
+
 ## Solar deployment
 
 Use an external solar/MPPT charger that is suitable for the exact battery chemistry and panel open-circuit voltage. A connector fitting mechanically does not prove polarity, voltage, charge current, or regulation compatibility.
