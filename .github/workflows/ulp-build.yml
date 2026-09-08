@@ -21,6 +21,7 @@ jobs:
         run: |
           python scripts/verify_ulp_release.py
           python tools/configure_ulp.py --self-test
+          python scripts/test_ulp_serial.py
           pio project config --json-output >/dev/null
       - name: Run upstream unit tests
         run: pio test -e native -e native_kiss_modem

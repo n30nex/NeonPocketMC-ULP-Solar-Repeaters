@@ -112,7 +112,7 @@ def choose_port(requested: str | None) -> str:
     try:
         from serial.tools import list_ports
     except ImportError as exc:
-        raise SetupError("PySerial is missing. Use the supplied Windows or Linux launcher.") from exc
+        raise SetupError("PySerial is missing. Use the supplied Windows or Linux/macOS launcher.") from exc
     ports = sorted(list_ports.comports(), key=lambda item: item.device.lower())
     if not ports:
         raise SetupError("No serial device found. Connect the repeater with a USB data cable.")
@@ -134,7 +134,8 @@ class Device:
             self.serial.baudrate = BAUD
             self.serial.timeout = 0.08
             self.serial.write_timeout = 2
-            self.serial.dtr = False
+            # nRF52 TinyUSB suppresses replies unless the host asserts DTR.
+            self.serial.dtr = True
             self.serial.rts = False
             self.serial.open()
         except Exception as exc:
@@ -158,7 +159,11 @@ class Device:
             chunk = self.serial.read(max(1, self.serial.in_waiting))
             if chunk:
                 data.extend(chunk)
-                replies = re.findall(r"(?:^|[\r\n])\s*->\s*([^\r\n]+)", data.decode(errors="replace"))
+                # USB reads can split the marker, version, or error across packets.
+                replies = re.findall(
+                    r"(?:^|[\r\n])[ \t]*->[ \t]*(\S[^\r\n]*)(?=[\r\n])",
+                    data.decode(errors="replace"),
+                )
                 if replies:
                     reply = replies[-1].strip()
                     if reply.lower().startswith(("err", "error", "unknown", "??")):
@@ -237,7 +242,7 @@ def run(port: str | None) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port", help="Serial port, for example COM21 or /dev/ttyACM0")
+    parser.add_argument("--port", help="Serial port, for example COM21, /dev/ttyACM0 or /dev/cu.usbmodem123")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     try:

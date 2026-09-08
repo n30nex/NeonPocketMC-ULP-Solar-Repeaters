@@ -45,10 +45,15 @@ Saved preferences always win after an upgrade. A previously configured device is
 2. Keep USB and the antenna connected.
 3. Download the release's `NeonPocketMC-ULP-Configurator.zip`.
 4. Windows: double-click `configure-ulp-windows.bat`.
-5. Linux: run `sh configure-ulp-linux.sh`.
+5. Linux/macOS: run `sh configure-ulp-linux.sh` (Python 3.10 or newer).
 6. Pick the serial device, region, name, transmit power, map-location policy, admin password, and ULP profile.
 
 The wizard verifies that it is talking to NeonPocket ULP firmware before changing anything.
+
+On macOS, select the repeater's `/dev/cu.usbmodem...` port and close other serial
+terminals or browser connections first. The same shell launcher works on Intel
+and Apple Silicon Macs. For a port that opens but times out at `ver`, see
+[USB configurator troubleshooting](docs/INSTALL.md#usb-configurator-troubleshooting).
 
 ULP builds configure over USB and **do not create a Wi-Fi access point or WebUI**. Keep USB connected until the wizard reports success. If location sharing is enabled, the wizard explicitly sets `gps advert prefs`; choosing no sets `gps advert none`. A TFT may show `BAT: --` on USB when RCC6 cannot produce a physically valid single-cell reading rather than displaying a false voltage.
 
