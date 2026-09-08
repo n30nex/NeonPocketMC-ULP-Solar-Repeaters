@@ -6,6 +6,11 @@
 
 Experimental, low-power MeshCore repeaters for solar and battery deployments.
 
+Current candidate: [v1.0.0-rc.4](https://github.com/n30nex/NeonPocketMC-ULP-Solar-Repeaters/releases/tag/v1.0.0-rc.4),
+including the corrected [USB configurator](https://github.com/n30nex/NeonPocketMC-ULP-Solar-Repeaters/releases/download/v1.0.0-rc.4/NeonPocketMC-ULP-Configurator.zip)
+for nRF52 serial replies and macOS setup. Existing rc.2/rc.3 users can use the
+updated configurator without reflashing or resetting saved settings.
+
 This firmware is built from [IoTThinks' PowerSaving-v17 MeshCore fork](https://github.com/IoTThinks/MeshCore/tree/PowerSaving-v17), with the power-saving work fully attributed in [docs/EASYSKYMESH_ATTRIBUTION.md](docs/EASYSKYMESH_ATTRIBUTION.md). It tracks MeshCore 1.17.1 and adds NeonPocketMC hardware profiles, default-on setup, a simpler `ulp` command, TFT support for RCC6/RC52, packaging, and a guided USB configurator.
 
 > **Experimental.** RX duty cycling saves power by intentionally spending part of each interval asleep. A ULP repeater can miss packets that a continuously listening repeater would receive. Test coverage and current draw at the actual deployment site before relying on it.
